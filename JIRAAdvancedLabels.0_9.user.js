@@ -4,7 +4,7 @@
 // @namespace   JIRA
 // @description Takes JIRA backlog labels repositions them and gives them color backgrounds
 // @match     https://jirasson.betsson.local/secure/*
-// @version     0.9
+// @version     0.9.1
 // @grant       none
 // ==/UserScript==
 
@@ -63,7 +63,7 @@ function calculateLabelColors(label) {
   red = red % 255;
   green = green % 255;
   blue = blue % 255;
-  
+
   var textColor = "color: rgb(245, 245, 245)";
   if ( red + green + blue > 500 || green >= 200 ) { /* Too bright BG use dark font color */
     textColor = "color: rgb(66, 66, 66)";
@@ -76,9 +76,9 @@ function generateLabelsHTML(labels) {
   if (labels.length === 1 && labels[0] === "None") { /* Ignoring "None" labels */
     return "";
   }
-  
+
   var labelsHTML = "";
-  for (label of labels) {
+  for (var label of labels) {
     if (label.match(/\[[A-z]+\]/g)) { /* Is special label */
       labelsHTML = "<span class='usOwnLabel' style='background: #333; color: #eee; font-weight: bold;'>" + label.substring(1, label.length - 1) + "</span>" + labelsHTML;
     } else { /* other labels */
@@ -89,14 +89,12 @@ function generateLabelsHTML(labels) {
   return labelsHTML;
 }
 
-
 /* Traverses DOM backlog, removes old labels and creates new one with proper styling and puts them into backlog item summary */
 function traverseBacklog() {
   if (traverseInProgress) {
     return;
   }
-  
-  
+
   /* Get all elements containg labels information */
   var labelRows = document.querySelectorAll(".ghx-plan-extra-fields [data-tooltip*='Labels:']");
   if (labelRows.length === 0) {
@@ -104,34 +102,34 @@ function traverseBacklog() {
     traverseInProgress = false;
     return;
   }
-  
+
   /* Set traversing flag */
   traverseInProgress = true;
-  
+
   /* Removing already parsed element, so we don't parse it again for any reason */
   var oldRowsElementsToRemove = [];
-  
+
   /* Render and append label tags to Summary */
-  for (labelRow of labelRows) {
+  for (var labelRow of labelRows) {
     var issueContentElm = labelRow.parentNode.parentNode;
-    
+
     oldRowsElementsToRemove.push(labelRow.parentNode);
-    
+
     var labels = parseLabels(labelRow);
     var labelsRowHTML = generateLabelsHTML(labels);
-    
+
     var sumElm = issueContentElm.querySelector(".ghx-summary");
     var labelsElm = document.createElement("span");
     labelsElm.innerHTML = labelsRowHTML;
     sumElm.insertBefore(labelsElm, sumElm.firstChild);
   }
-  
+
   /* Remove old label rows */
   for (var toRemoveElement of oldRowsElementsToRemove) {
     toRemoveElement.parentNode.removeChild(toRemoveElement);
   }
   oldRowsElementsToRemove = null;
-  
+
   /* Everything is done, reset flag */
   traverseInProgress = false;
 }
@@ -149,9 +147,8 @@ function waitForBacklog() {
     backlogElm.addEventListener("DOMNodeInserted", function (ev) {
       traverseBacklog();
     }, false);
-    
+
     /* First traversal */
-    console.log("First traversal");
     traverseBacklog();
   }
 }
@@ -159,7 +156,7 @@ function waitForBacklog() {
 /* Detect SPA opening of backlog url */
 window.onpopstate = function(event) {
   /* If url contains rapidView=NUMBER&view=planning we want to initiate our script */
-  var isBacklogPage = document.location.match(/.+rapidView=[0-9]+.+view=planning.*/g);
+  var isBacklogPage = document.location.href.match(/.+rapidView=[0-9]+.+view=planning.*/g);
   if (isBacklogPage) {
     waitForBacklog();
   }
