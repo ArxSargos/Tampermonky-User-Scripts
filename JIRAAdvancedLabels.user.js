@@ -12,7 +12,6 @@
 var hideDefaultLabelsRowStyle = document.createElement("style");
 var css  = ".ghx-backlog .ghx-plan-extra-fields.ghx-plan-extra-fields-1.ghx-row { display: none !important;}";
     css += ".usOwnLabel {display: inline-block; margin: 0 3px 3px 0; padding: 0 3px; border: 1px solid #666;}";
-    css += ".ghx-summary .ghx-inner { font-weight: bold;}"
 hideDefaultLabelsRowStyle.type = 'text/css';
 if (hideDefaultLabelsRowStyle.styleSheet){
   hideDefaultLabelsRowStyle.styleSheet.cssText = css;
