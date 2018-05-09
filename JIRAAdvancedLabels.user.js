@@ -4,7 +4,7 @@
 // @namespace   JIRA
 // @description Takes JIRA backlog labels repositions them and gives them color backgrounds
 // @match     https://jirasson.betsson.local/secure/*
-// @version     0.9.2
+// @version     0.9.3
 // @grant       none
 // ==/UserScript==
 
