@@ -4,13 +4,58 @@
 // @namespace   JIRA
 // @description Takes JIRA backlog labels repositions them and gives them color backgrounds
 // @match     https://jirasson.betsson.local/secure/*
-// @version     0.9.3
+// @version     0.9.4
 // @grant       none
 // ==/UserScript==
 
 /* Insert CSS hiding labels from separate line, so it doesn't break scroll position when removed from DOM later */
+
+class ClassWatcher {
+
+    constructor(targetNode, classToWatch, classAddedCallback, classRemovedCallback) {
+        this.targetNode = targetNode;
+        this.classToWatch = classToWatch;
+        this.classAddedCallback = classAddedCallback;
+        this.classRemovedCallback = classRemovedCallback;
+        this.observer = null;
+        this.lastClassState = targetNode.classList.contains(this.classToWatch);
+
+        this.init();
+    }
+
+    init() {
+        this.observer = new MutationObserver(this.mutationCallback.bind(this));
+        this.observe();
+    }
+
+    observe() {
+        this.observer.observe(this.targetNode, { attributes: true });
+    }
+
+    disconnect() {
+        this.observer.disconnect();
+    }
+
+    mutationCallback(mutationsList){
+        for(let mutation of mutationsList) {
+            if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+                let currentClassState = mutation.target.classList.contains(this.classToWatch);
+                if(this.lastClassState !== currentClassState) {
+                    this.lastClassState = currentClassState;
+                    if(currentClassState) {
+                        this.classAddedCallback();
+                    }
+                    else {
+                        this.classRemovedCallback();
+                    }
+                }
+            }
+        }
+    }
+}
+
 var hideDefaultLabelsRowStyle = document.createElement("style");
-var css  = ".ghx-backlog .ghx-plan-extra-fields.ghx-plan-extra-fields-1.ghx-row { display: none !important;}";
+var css = ".ghx-backlog .ghx-plan-extra-fields.ghx-plan-extra-fields-1.ghx-row { display: none !important;}";
     css += ".usOwnLabel {display: inline-block; margin: 0 3px 3px 0; padding: 0 3px; border: 1px solid #666;}";
 hideDefaultLabelsRowStyle.type = 'text/css';
 if (hideDefaultLabelsRowStyle.styleSheet){
@@ -25,7 +70,9 @@ headRef.appendChild(hideDefaultLabelsRowStyle);
 
 /* -- JS code ----------------------------------------------------------------------------------------------------*/
 /* Maximum count of tries when waiting for backlog container element */
-triesCount = 0;
+let triesCount = 0;
+let isBacklogPage = undefined;
+let isRapidView = undefined;
 
 /* Semaphore for not triggering on DOMNodeInserted as we are also inserting nodes */
 var traverseInProgress = false;
@@ -78,7 +125,7 @@ function generateLabelsHTML(labels) {
   }
   
   var labelsHTML = "";
-  for (label of labels) {
+  for (let label of labels) {
     if (label.match(/\[[A-z]+\]/g)) { /* Is special label */
       labelsHTML = "<span class='usOwnLabel' style='background: #333; color: #eee; font-weight: bold;'>" + label.substring(1, label.length - 1) + "</span>" + labelsHTML;
     } else { /* other labels */
@@ -96,12 +143,10 @@ function removeSummaryLabels(text) {
 
 
 /* Traverses DOM backlog, removes old labels and creates new one with proper styling and puts them into backlog item summary */
-function traverseBacklog(pages) {
+function traverseBacklog() {
   if (traverseInProgress) {
     return;
   }
-  
-  var {isBacklogPage: isBacklogPage, isRapidView: isRapidView} = pages;
   
   /* Get all elements containg labels information */
   var tooltipSelector = ".ghx-extra-fields [data-tooltip*='Labels:']";
@@ -155,16 +200,21 @@ function waitForContainer(pages) {
   var sprintPoolElm = document.getElementById("ghx-pool");
   if (!backlogElm && !sprintPoolElm) {
     triesCount++;
-    if (triesCount < 5) {
+    if (triesCount < 8) {
       setTimeout(waitForContainer.bind(this, {isBacklogPage: isBacklogPage, isRapidView: isRapidView}), triesCount * 1000);
     }
     return;
   } else {
     triesCount = 0;
     var elmToListen = backlogElm ? backlogElm : sprintPoolElm;
-    elmToListen.addEventListener("DOMNodeInserted", function (ev) {
-      traverseBacklog({isBacklogPage: isBacklogPage, isRapidView: isRapidView});
-    }, false);
+
+  // watch for a specific class change
+  let classWatcher = new ClassWatcher(
+    document.getElementById("gh"),
+    'js-ghx-detail-loaded',
+    traverseBacklog,
+    traverseBacklog
+  );
     
     /* First traversal */
     traverseBacklog({isBacklogPage: isBacklogPage, isRapidView: isRapidView});
@@ -174,13 +224,13 @@ function waitForContainer(pages) {
 /* Detect SPA opening of backlog url */
 window.onpopstate = function(event) {
   /* If url contains rapidView=NUMBER&view=planning we want to initiate our script */
-  var isBacklogPage = document.location.href.match(/.+rapidView=[0-9]+.+view=planning.*/g);
-  var isRapidView = document.location.href.match(/.+rapidView=[0-9]+.*/g);
+  isBacklogPage = document.location.href.match(/.+rapidView=[0-9]+.+view=planning.*/g);
+  isRapidView = document.location.href.match(/.+rapidView=[0-9]+.*/g);
   if (isBacklogPage || isRapidView) {
     waitForContainer({isBacklogPage: isBacklogPage, isRapidView: isRapidView});
   }
 };
 
-var isBacklogPage = document.location.href.match(/.+rapidView=[0-9]+.+view=planning.*/g) ? true : false;
-var isRapidView = document.location.href.match(/.+rapidView=[0-9]+.*/g) ? true : false;
+isBacklogPage = document.location.href.match(/.+rapidView=[0-9]+.+view=planning.*/g) ? true : false;
+isRapidView = document.location.href.match(/.+rapidView=[0-9]+.*/g) ? true : false;
 waitForContainer({isBacklogPage: isBacklogPage, isRapidView: isRapidView});
